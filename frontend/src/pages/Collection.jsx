@@ -3,10 +3,13 @@ import { ShopContext } from '../context/ShopContext'
 import { assets } from '../assets/assets';
 import Title from '../components/Title';
 import ProductItem from '../components/ProductItem';
+import { fetchProducts } from '../utils/fetchProducts';
 
 const Collection = () => {
 
-  const { products , search , showSearch } = useContext(ShopContext);
+  const { backendUrl, search , showSearch } = useContext(ShopContext);
+  const [page, setPage] = useState(1);
+  const [products, setProducts] = useState([]);
   const [showFilter,setShowFilter] = useState(false);
   const [filterProducts,setFilterProducts] = useState([]);
   const [category,setCategory] = useState([]);
@@ -82,6 +85,14 @@ const Collection = () => {
     sortProduct();
   },[sortType])
 
+  useEffect(() => {
+    const loadProducts = async () => {
+      const data = await fetchProducts(backendUrl, page, 20);
+      setProducts(data);
+    };
+    loadProducts();
+  }, [backendUrl, page]);
+
   return (
     <div className='flex flex-col sm:flex-row gap-1 sm:gap-10 pt-10 border-t'>
       
@@ -142,6 +153,12 @@ const Collection = () => {
               <ProductItem key={index} name={item.name} id={item._id} price={item.price} image={item.image} />
             ))
           }
+        </div>
+
+        <div className='flex items-center justify-center gap-3 mt-10'>
+          <button onClick={() => setPage(prev => Math.max(prev - 1, 1))} className='border px-4 py-2 text-sm'>Prev</button>
+          <p className='text-sm'>Page {page}</p>
+          <button onClick={() => setPage(prev => prev + 1)} className='border px-4 py-2 text-sm'>Next</button>
         </div>
       </div>
 

@@ -1,10 +1,11 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import Title from "../components/Title";
 import CartTotal from "../components/CartTotal";
 import { assets } from "../assets/assets";
 import { ShopContext } from "../context/ShopContext";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { fetchProductById } from "../utils/fetchProducts";
 
 const PlaceOrder = () => {
   const [method, setMethod] = useState("cod");
@@ -14,10 +15,52 @@ const PlaceOrder = () => {
     token,
     cartItems,
     setCartItems,
-    getCartAmount,
     delivery_fee,
-    products,
   } = useContext(ShopContext);
+  const [productById, setProductById] = useState({});
+  const [cartAmount, setCartAmount] = useState(0);
+
+  const cartLines = useMemo(() => {
+    const temp = [];
+    for (const productId in cartItems) {
+      for (const size in cartItems[productId]) {
+        const quantity = cartItems[productId][size];
+        if (quantity > 0) temp.push({ productId, size, quantity });
+      }
+    }
+    return temp;
+  }, [cartItems]);
+
+  useEffect(() => {
+    const loadCartProducts = async () => {
+      const uniqueIds = Array.from(new Set(cartLines.map((l) => l.productId)));
+      if (uniqueIds.length === 0) {
+        setProductById({});
+        setCartAmount(0);
+        return;
+      }
+
+      const results = await Promise.all(
+        uniqueIds.map(async (id) => {
+          const product = await fetchProductById(backendUrl, id);
+          return [id, product];
+        }),
+      );
+
+      const nextMap = Object.fromEntries(results.filter(([, p]) => Boolean(p)));
+      setProductById(nextMap);
+
+      let total = 0;
+      for (const line of cartLines) {
+        const product = nextMap[line.productId];
+        if (!product) continue;
+        total += product.price * line.quantity;
+      }
+      setCartAmount(total);
+    };
+
+    loadCartProducts();
+  }, [backendUrl, cartLines]);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -68,34 +111,28 @@ const PlaceOrder = () => {
     try {
       let orderItems = [];
 
-      for (const items in cartItems) {
-        for (const item in cartItems[items]) {
-          if (cartItems[items][item] > 0) {
-            const itemInfo = structuredClone(
-              products.find((product) => product._id === items)
-            );
-            if (itemInfo) {
-              itemInfo.size = item;
-              itemInfo.quantity = cartItems[items][item];
-              orderItems.push(itemInfo);
-            }
-          }
-        }
+      for (const line of cartLines) {
+        const product = productById[line.productId];
+        if (!product) continue;
+        const itemInfo = structuredClone(product);
+        itemInfo.size = line.size;
+        itemInfo.quantity = line.quantity;
+        orderItems.push(itemInfo);
       }
 
       let orderData = {
         address: formData,
         items: orderItems,
-        amount: getCartAmount() + delivery_fee,
+        amount: cartAmount + delivery_fee,
       };
 
       switch (method) {
         // API Calls for COD
-        case "cod":
+        case "cod": {
           const response = await axios.post(
             backendUrl + "/api/order/place",
             orderData,
-            { headers: { token } }
+            { headers: { token } },
           );
           if (response.data.success) {
             setCartItems({});
@@ -104,12 +141,13 @@ const PlaceOrder = () => {
             toast.error(response.data.message);
           }
           break;
+        }
 
-        case "stripe":
+        case "stripe": {
           const responseStripe = await axios.post(
             backendUrl + "/api/order/stripe",
             orderData,
-            { headers: { token } }
+            { headers: { token } },
           );
           if (responseStripe.data.success) {
             const { session_url } = responseStripe.data;
@@ -118,6 +156,7 @@ const PlaceOrder = () => {
             toast.error(responseStripe.data.message);
           }
           break;
+        }
 
         // case 'razorpay':
         //     const responseRazorpay = await axios.post(backendUrl + '/api/order/razorpay', orderData, {headers:{token}})
@@ -236,7 +275,7 @@ const PlaceOrder = () => {
       {/* ------------- Right Side ------------------ */}
       <div className="mt-8">
         <div className="mt-8 min-w-80">
-          <CartTotal />
+          <CartTotal amount={cartAmount} />
         </div>
 
         <div className="mt-12">

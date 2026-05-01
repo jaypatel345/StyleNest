@@ -11,6 +11,8 @@ const authUser = async (req, res, next) => {
     try {
 
         const token_decode = jwt.verify(token, process.env.JWT_SECRET)
+        req.userId = token_decode.id
+        // Backward-compat: existing controllers read from req.body.userId
         req.body.userId = token_decode.id
         next()
 

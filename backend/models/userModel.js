@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, "invalid email"],
     },
-    password: { type: String, required: true, select: false },
+    password: { type: String, required: true, select: true },
     cartData: [
       {
         productId: mongoose.Schema.Types.ObjectId,

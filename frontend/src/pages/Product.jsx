@@ -3,31 +3,28 @@ import { useParams } from 'react-router-dom'
 import { ShopContext } from '../context/ShopContext';
 import { assets } from '../assets/assets';
 import RelatedProducts from '../components/RelatedProducts';
+import { fetchProductById } from '../utils/fetchProducts';
 
 const Product = () => {
 
   const { productId } = useParams();
-  const { products, currency ,addToCart } = useContext(ShopContext);
+  const { backendUrl, currency ,addToCart } = useContext(ShopContext);
   const [productData, setProductData] = useState(false);
   const [image, setImage] = useState('')
   const [size,setSize] = useState('')
 
-  const fetchProductData = async () => {
-
-    products.map((item) => {
-      if (item._id === productId) {
-        setProductData(item)
-        setImage(item.image[0])
-        console.log(item);
-        return null;
-      }
-    })
-
-  }
-
   useEffect(() => {
-    fetchProductData();
-  }, [productId,products])
+    const loadProduct = async () => {
+      const product = await fetchProductById(backendUrl, productId);
+      if (product) {
+        setProductData(product);
+        setImage(product.image?.[0] || '');
+        setSize('');
+      }
+    };
+
+    if (productId) loadProduct();
+  }, [backendUrl, productId])
 
   return productData ? (
     <div className='border-t-2 pt-10 transition-opacity ease-in duration-500 opacity-100'>

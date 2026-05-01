@@ -10,6 +10,8 @@ const productSchema = new mongoose.Schema(
       min: 0,
       index: true,
     },
+    // Legacy field used by current frontend + order snapshots
+    image: [{ type: String }],
     images: [
       {
         url: String,
