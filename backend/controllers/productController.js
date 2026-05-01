@@ -2,6 +2,31 @@ import { v2 as cloudinary } from "cloudinary";
 import productModel from "../models/productModel.js";
 import redis from "../config/redis.js";
 
+const cacheDebugEnabled = process.env.CACHE_DEBUG === "true";
+const productsCacheTtlSeconds =
+  Number(process.env.PRODUCTS_CACHE_TTL_SECONDS) || 600;
+
+const invalidateProductsListCache = async () => {
+  try {
+    let cursor = "0";
+    do {
+      const [nextCursor, keys] = await redis.scan(
+        cursor,
+        "MATCH",
+        "stylenest:products:page:*",
+        "COUNT",
+        200,
+      );
+      cursor = nextCursor;
+      if (keys?.length) await redis.del(...keys);
+    } while (cursor !== "0");
+
+    if (cacheDebugEnabled) console.log("[cache] invalidated products list");
+  } catch (error) {
+    if (cacheDebugEnabled) console.log("[cache] invalidate products failed:", error?.message);
+  }
+};
+
 // function for add product
 const addProduct = async (req, res) => {
   try {
@@ -50,6 +75,8 @@ const addProduct = async (req, res) => {
     const product = new productModel(productData);
     await product.save();
 
+    await invalidateProductsListCache();
+
     res.json({ success: true, message: "Product Added" });
   } catch (error) {
     console.log(error);
@@ -64,7 +91,12 @@ const listProducts = async (req, res) => {
     const cacheKey = `stylenest:products:page:${page}:limit:${limit}`;
 
     // 1. Check cache
-    const cachedData = await redis.get(cacheKey);
+    let cachedData = null;
+    try {
+      cachedData = await redis.get(cacheKey);
+    } catch (e) {
+      if (cacheDebugEnabled) console.log("[cache] redis get failed:", e?.message);
+    }
 
     if (cachedData) {
       console.log("Cache HIT");
@@ -79,11 +111,17 @@ const listProducts = async (req, res) => {
     // 2. Fetch from DB (add pagination)
     const products = await productModel
       .find({})
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .limit(Number(limit))
+      .lean();
 
     // 3. Store in Redis (10 min)
-    await redis.setex(cacheKey, 600, JSON.stringify(products));
+    try {
+      await redis.setex(cacheKey, productsCacheTtlSeconds, JSON.stringify(products));
+    } catch (e) {
+      if (cacheDebugEnabled) console.log("[cache] redis setex failed:", e?.message);
+    }
 
     res.json({
       success: true,
@@ -100,6 +138,7 @@ const listProducts = async (req, res) => {
 const removeProduct = async (req, res) => {
   try {
     await productModel.findByIdAndDelete(req.body.id);
+    await invalidateProductsListCache();
     res.json({ success: true, message: "Product Removed" });
   } catch (error) {
     console.log(error);
