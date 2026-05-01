@@ -4,7 +4,7 @@ import {
   registerUser,
   adminLogin,
 } from "../controllers/userController.js";
-import { rateLimiter } from "../middleware/ratelimiter.js";
+import { rateLimiter } from "../middleware/rateLimiter.js";
 import { ipKey } from "../middleware/keyGenerators.js";
 
 const userRouter = express.Router();
