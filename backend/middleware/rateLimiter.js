@@ -24,6 +24,10 @@ return {1, current}
 export const rateLimiter = (keyGenerator) => {
   return async (req, res, next) => {
     try {
+      if (!redis || redis.status !== "ready") {
+        return next();
+      }
+
       const key = keyGenerator(req);
       const result = await redis.eval(
         rateLimiterlua,

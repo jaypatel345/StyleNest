@@ -2,9 +2,11 @@ import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import Stripe from "stripe";
 import razorpay from "razorpay";
+import crypto from "crypto";
 import redis from "../config/redis.js";
 
-const currency = "inr";
+const stripeCurrency = process.env.STRIPE_CURRENCY || "usd";
+const razorpayCurrency = process.env.RAZORPAY_CURRENCY || "INR";
 const deliveryCharge = 10;
 
 const cacheDebugEnabled = process.env.CACHE_DEBUG === "true";
@@ -56,10 +58,18 @@ const invalidateOrderCaches = async (userId) => {
 // gateway initialize
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-const razorpayInstance = new razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+const isPlaceholder = (value) => !value || value.startsWith("your_");
+
+const getRazorpayInstance = () => {
+  if (isPlaceholder(process.env.RAZORPAY_KEY_ID) || isPlaceholder(process.env.RAZORPAY_KEY_SECRET)) {
+    return null;
+  }
+
+  return new razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+};
 
 // Placing orders using COD Method
 const placeOrder = async (req, res) => {
@@ -113,22 +123,22 @@ const placeOrderStripe = async (req, res) => {
 
     const line_items = items.map((item) => ({
       price_data: {
-        currency: currency,
+        currency: stripeCurrency,
         product_data: {
           name: item.name,
         },
-        unit_amount: item.price * 100,
+        unit_amount: Math.round(Number(item.price) * 100),
       },
-      quantity: item.quantity,
+      quantity: Number(item.quantity),
     }));
 
     line_items.push({
       price_data: {
-        currency: currency,
+        currency: stripeCurrency,
         product_data: {
           name: "Delivery Charges",
         },
-        unit_amount: deliveryCharge * 100,
+        unit_amount: Math.round(deliveryCharge * 100),
       },
       quantity: 1,
     });
@@ -172,6 +182,14 @@ const verifyStripe = async (req, res) => {
 const placeOrderRazorpay = async (req, res) => {
   try {
     const { userId, items, amount, address } = req.body;
+    const razorpayInstance = getRazorpayInstance();
+
+    if (!razorpayInstance) {
+      return res.json({
+        success: false,
+        message: "Razorpay keys are not configured",
+      });
+    }
 
     const orderData = {
       userId,
@@ -189,17 +207,17 @@ const placeOrderRazorpay = async (req, res) => {
     await invalidateOrderCaches(userId);
 
     const options = {
-      amount: amount * 100,
-      currency: currency.toUpperCase(),
+      amount: Math.round(Number(amount) * 100),
+      currency: razorpayCurrency.toUpperCase(),
       receipt: newOrder._id.toString(),
     };
 
-    await razorpayInstance.orders.create(options, (error, order) => {
-      if (error) {
-        console.log(error);
-        return res.json({ success: false, message: error });
-      }
-      res.json({ success: true, order });
+    const order = await razorpayInstance.orders.create(options);
+
+    res.json({
+      success: true,
+      order,
+      key_id: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
     console.log(error);
@@ -209,17 +227,44 @@ const placeOrderRazorpay = async (req, res) => {
 
 const verifyRazorpay = async (req, res) => {
   try {
-    const { userId, razorpay_order_id } = req.body;
+    const {
+      userId,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body;
+    const razorpayInstance = getRazorpayInstance();
+
+    if (!razorpayInstance) {
+      return res.json({
+        success: false,
+        message: "Razorpay keys are not configured",
+      });
+    }
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.json({ success: false, message: "Missing Razorpay payment details" });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.json({ success: false, message: "Payment verification failed" });
+    }
 
     const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id);
-    if (orderInfo.status === "paid") {
-      await orderModel.findByIdAndUpdate(orderInfo.receipt, { payment: true });
-      await userModel.findByIdAndUpdate(userId, { cartData: {} });
-      await invalidateOrderCaches(userId);
-      res.json({ success: true, message: "Payment Successful" });
-    } else {
-      res.json({ success: false, message: "Payment Failed" });
-    }
+
+    await orderModel.findByIdAndUpdate(orderInfo.receipt, {
+      payment: true,
+      transactionId: razorpay_payment_id,
+    });
+    await userModel.findByIdAndUpdate(userId, { cartData: {} });
+    await invalidateOrderCaches(userId);
+
+    res.json({ success: true, message: "Payment Successful" });
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });

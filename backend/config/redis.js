@@ -2,9 +2,15 @@ import Redis from "ioredis";
 
 let redis;
 
-if (!global.redis) {
+const redisUrl = process.env.REDIS_URL;
+const isProduction = process.env.NODE_ENV === "production";
+
+if (!redisUrl && !isProduction) {
+  console.log("Redis disabled: REDIS_URL is not configured");
+} else if (!global.redis) {
   global.redis = new Redis(process.env.REDIS_URL, {
-    maxRetriesPerRequest: 3,
+    maxRetriesPerRequest: isProduction ? 3 : 1,
+    connectTimeout: isProduction ? 10000 : 500,
     enableReadyCheck: true,
   });
 
@@ -17,6 +23,6 @@ if (!global.redis) {
   });
 }
 
-redis = global.redis;
+redis = global.redis || null;
 
 export default redis;

@@ -29,11 +29,15 @@ const orderSchema = new mongoose.Schema(
     },
 
     address: {
+      firstName: String,
+      lastName: String,
+      email: String,
       name: String,
       phone: String,
       street: String,
       city: String,
       state: String,
+      zipcode: String,
       pincode: String,
       country: String,
     },
@@ -42,9 +46,11 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: [
         "Order Placed",
+        "Packing",
         "Processing",
         "Shipped",
         "Out for Delivery",
+        "Out for delivery",
         "Delivered",
         "Cancelled",
       ],
@@ -52,18 +58,19 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
+    paymentMethod: {
+      type: String,
+      enum: ["COD", "Stripe", "Razorpay"],
+    },
     payment: {
-      status: {
-        type: String,
-        enum: ["pending", "paid", "failed"],
-        default: "pending",
-        index: true,
-      },
-      method: {
-        type: String,
-        enum: ["COD", "Stripe", "Razorpay"],
-      },
-      transactionId: String,
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    transactionId: String,
+    date: {
+      type: Number,
+      default: Date.now,
     },
   },
   {
@@ -73,8 +80,6 @@ const orderSchema = new mongoose.Schema(
 
 // indexes
 orderSchema.index({ userId: 1, createdAt: -1 });
-orderSchema.index({ status: 1 });
-orderSchema.index({ "payment.status": 1 });
 
 const orderModel =
   mongoose.models.order || mongoose.model("order", orderSchema);

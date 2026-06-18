@@ -8,9 +8,22 @@ const createToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET)
 }
 
+const escapeRegExp = (value) => {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+};
+
+const findUserByEmail = async (email) => {
+  const user = await userModel.findOne({ email });
+  if (user) return user;
+
+  return userModel.findOne({
+    email: { $regex: `^${escapeRegExp(email)}$`, $options: "i" },
+  });
+};
+
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
     //  Step 1: Validate input
     if (!email || !password) {
@@ -19,9 +32,10 @@ const loginUser = async (req, res) => {
         message: "Email and password are required",
       });
     }
+    email = email.trim().toLowerCase();
 
     //  Step 2: Check user exists
-    const user = await userModel.findOne({ email });
+    const user = await findUserByEmail(email);
 
     if (!user) {
       return res.status(404).json({
@@ -66,10 +80,11 @@ const loginUser = async (req, res) => {
 const registerUser = async (req, res) => {
     try {
 
-        const { name, email, password } = req.body;
+        let { name, email, password } = req.body;
+        email = email.trim().toLowerCase();
 
         // checking user already exists or not
-        const exists = await userModel.findOne({ email });
+        const exists = await findUserByEmail(email);
         if (exists) {
             return res.json({ success: false, message: "User already exists" })
         }
