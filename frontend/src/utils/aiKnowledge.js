@@ -164,6 +164,42 @@ export const queryLocalAi = ({ message, history = [], catalog = [], cartItems = 
     };
   }
 
+  // 5. Product Discovery & Personal Stylist Recommendations ("Find the Right Product", "Recommend something", "What do you recommend?")
+  if (/\b(find (the )?right product|find products?|recommend|what do you recommend|help me choose|help me find|suggest something|suggest products?|show me clothes|browse collection|explore collection)\b/i.test(query)) {
+    let curated = products.filter(p => p.bestseller);
+    if (context.activeCategory) {
+      const catItems = products.filter(p => (p.category || "").toLowerCase() === context.activeCategory.toLowerCase());
+      if (catItems.length > 0) curated = catItems;
+    }
+    if (!curated || curated.length === 0) {
+      curated = products;
+    }
+
+    const seenNames = new Set();
+    const distinctCurated = [];
+    for (const p of curated) {
+      if (!seenNames.has(p.name)) {
+        seenNames.add(p.name);
+        distinctCurated.push(p);
+      }
+    }
+
+    const categoryNote = context.activeCategory ? ` in **${context.activeCategory}**` : "";
+    const greetingName = context.customerName ? ` **${context.customerName}**` : "";
+
+    return {
+      reply: `### StyleNest Curated Signature Picks\n\nHere are our top-rated, customer-favorite essentials${categoryNote} to get you started${greetingName}! You can pick your size and click **Add to Cart** directly on any card below.\n\nLooking for something specific? Ask me about **Men's Jackets**, **Women's Tops**, or filter by budget like **\"Under $150\"**.`,
+      products: distinctCurated.slice(0, 6),
+      suggestedQuestions: [
+        "Men's Winterwear",
+        "Women's Collection",
+        "Under $150",
+        "Active Promo Codes",
+        "Size & Fit Guide"
+      ]
+    };
+  }
+
   // 5. Size & Fit Advisor (Amazon Rufus-style recommendation)
   if (/\b(what size|size recommendation|size advice|fit guide|do you run true to size|how does it fit)\b/i.test(query) || /\b(\d+'\d+|\d+\s*ft|\d+\s*cm|\d+\s*lbs|\d+\s*kg)\b/i.test(query)) {
     return {
@@ -385,7 +421,7 @@ export const searchProducts = (products = [], rawQuery = "", context = {}) => {
   const priceMatch = q.match(/(?:under|below|less than|within|budget of|<)\s*\$?(\d+)/i);
   const maxPrice = priceMatch ? Number(priceMatch[1]) : null;
 
-  const stopWords = new Set(["show", "find", "some", "with", "that", "this", "for", "want", "need", "the", "please", "looking", "look", "i'm", "give", "display", "all", "get", "any", "them", "these", "those", "it"]);
+  const stopWords = new Set(["show", "find", "some", "with", "that", "this", "for", "want", "need", "the", "please", "looking", "look", "i'm", "give", "display", "all", "get", "any", "them", "these", "those", "it", "product", "products", "item", "items", "right", "good", "nice", "clothes", "clothing", "apparel"]);
   const tokens = q
     .replace(/[^a-z0-9\s-]/g, " ")
     .split(/\s+/)
