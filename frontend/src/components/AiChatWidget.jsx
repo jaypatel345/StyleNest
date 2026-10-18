@@ -79,9 +79,9 @@ const AiChatWidget = () => {
     return localStorage.getItem(VOICE_PREF_KEY) === "true";
   });
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
-  const [availableVoices, setAvailableVoices] = useState([]);
-  const [currentVoiceName, setCurrentVoiceName] = useState(() => voiceAi.selectedVoiceName || "");
-  const [currentSpeed, setCurrentSpeed] = useState(() => voiceAi.speechRate || 1.0);
+  const [availableVoices, setAvailableVoices] = useState(() => voiceAi.getAvailableVoices());
+  const [currentVoiceId, setCurrentVoiceId] = useState(() => voiceAi.selectedVoiceId || "en-US-AriaNeural");
+  const [currentSpeed, setCurrentSpeed] = useState(() => voiceAi.speechSpeed || 1.0);
   const [isPreviewing, setIsPreviewing] = useState(false);
 
   const [catalog, setCatalog] = useState([]);
@@ -128,26 +128,13 @@ const AiChatWidget = () => {
     }
   }, [voiceEnabled]);
 
-  // Load and listen to available browser voices
+  // Sync backendUrl and load available neural voices
   useEffect(() => {
-    const updateVoices = () => {
-      const list = voiceAi.getAvailableVoices();
-      setAvailableVoices(list);
-      if (!currentVoiceName && list.length > 0) {
-        const best = voiceAi.getBestVoice();
-        if (best) setCurrentVoiceName(best.name);
-      }
-    };
-
-    updateVoices();
-
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.addEventListener("voiceschanged", updateVoices);
-      return () => {
-        window.speechSynthesis.removeEventListener("voiceschanged", updateVoices);
-      };
+    if (backendUrl) {
+      voiceAi.setBackendUrl(backendUrl);
     }
-  }, [currentVoiceName]);
+    setAvailableVoices(voiceAi.getAvailableVoices());
+  }, [backendUrl]);
 
   // Auto-scroll chat to bottom
   const scrollToBottom = () => {
@@ -241,19 +228,19 @@ const AiChatWidget = () => {
     setIsSpeaking(false);
   };
 
-  const handleSelectVoice = (name) => {
-    setCurrentVoiceName(name);
-    voiceAi.setVoice(name);
+  const handleSelectVoice = (id) => {
+    setCurrentVoiceId(id);
+    voiceAi.setVoice(id);
   };
 
   const handleSelectSpeed = (speed) => {
     setCurrentSpeed(speed);
-    voiceAi.setRate(speed);
+    voiceAi.setSpeed(speed);
   };
 
-  const handlePreviewVoice = (name) => {
+  const handlePreviewVoice = (id) => {
     setIsPreviewing(true);
-    voiceAi.previewVoice(name, () => {
+    voiceAi.previewVoice(id, () => {
       setIsPreviewing(false);
     });
   };
@@ -504,29 +491,25 @@ const AiChatWidget = () => {
                 {/* Voice Selection */}
                 <div>
                   <div className="flex items-center justify-between text-[11px] text-neutral-500 mb-1">
-                    <span>Natural Voice Model</span>
-                    <span className="text-[10px] text-neutral-400">Browser Native</span>
+                    <span>Studio Neural Voice</span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full font-medium">100% Free Neural</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <select
-                      value={currentVoiceName}
+                      value={currentVoiceId}
                       onChange={(e) => handleSelectVoice(e.target.value)}
                       className="flex-1 bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 font-medium focus:outline-none focus:border-neutral-900 shadow-2xs"
                     >
-                      {availableVoices.length > 0 ? (
-                        availableVoices.map((v) => (
-                          <option key={v.name} value={v.name}>
-                            {v.name} ({v.tag})
-                          </option>
-                        ))
-                      ) : (
-                        <option value="">Default High-Fidelity Voice</option>
-                      )}
+                      {availableVoices.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name}
+                        </option>
+                      ))}
                     </select>
 
                     <button
                       type="button"
-                      onClick={() => handlePreviewVoice(currentVoiceName)}
+                      onClick={() => handlePreviewVoice(currentVoiceId)}
                       disabled={isPreviewing}
                       title="Preview Voice Sample"
                       className="flex items-center gap-1 bg-neutral-900 hover:bg-black text-white px-2.5 py-1.5 rounded-lg font-medium text-[11px] shadow-2xs transition disabled:opacity-50"
