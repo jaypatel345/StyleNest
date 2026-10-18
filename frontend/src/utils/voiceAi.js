@@ -57,7 +57,10 @@ class VoiceAiService {
     this.isListening = false;
     this.isSpeaking = false;
     this.currentAudio = null;
-    this.backendUrl = "";
+    this.backendUrl =
+      typeof window !== "undefined" && window.location.hostname.includes("localhost")
+        ? "http://localhost:4000"
+        : "https://style-nest-backend-seven.vercel.app";
 
     this.speechSynthesis = typeof window !== "undefined" ? window.speechSynthesis : null;
     this.hasRecognitionSupport = typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -169,7 +172,11 @@ class VoiceAiService {
     }
 
     // Determine Backend TTS API URL
-    const baseUrl = this.backendUrl || (typeof window !== "undefined" && window.location.origin.includes("localhost") ? "http://localhost:4000" : "");
+    const baseUrl =
+      this.backendUrl ||
+      (typeof window !== "undefined" && window.location.hostname.includes("localhost")
+        ? "http://localhost:4000"
+        : "https://style-nest-backend-seven.vercel.app");
     if (baseUrl) {
       const ttsUrl = `${baseUrl}/api/ai/tts?text=${encodeURIComponent(cleaned)}&voice=${encodeURIComponent(chosenVoice)}&rate=${encodeURIComponent(rateStr)}`;
       this.playAudioUrl(ttsUrl, cleaned);

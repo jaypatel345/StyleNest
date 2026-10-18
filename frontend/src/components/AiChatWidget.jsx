@@ -34,7 +34,7 @@ import {
   Play
 } from "lucide-react";
 
-const STORAGE_KEY = "stylenest_ai_chat_history_v2";
+const STORAGE_KEY = "stylenest_ai_chat_v4";
 const VOICE_PREF_KEY = "stylenest_ai_voice_enabled";
 
 const INITIAL_MESSAGE = {
@@ -42,6 +42,7 @@ const INITIAL_MESSAGE = {
   sender: "assistant",
   text: `Hello! I'm your **StyleNest Personal Stylist & Shopping Concierge**.\n\nI can recommend matching outfits, pick sizes and add to cart, check live order delivery status, share active promo coupons, or connect you directly with our customer support team.\n\n*What can I help you find today?*`,
   products: [],
+  hasVoiceSample: true,
   suggestedQuestions: [
     "Find the Right Product",
     "Track My Order",
@@ -58,8 +59,10 @@ const AiChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState(() => {
     try {
-      // Clear legacy storage from older versions
+      // Clear older legacy cached chat histories
       localStorage.removeItem("stylenest_ai_chat_history");
+      localStorage.removeItem("stylenest_ai_chat_history_v2");
+      localStorage.removeItem("stylenest_ai_chat_history_v3");
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -202,9 +205,11 @@ const AiChatWidget = () => {
   };
 
   // Speak AI reply
-  const speakMessage = (text) => {
-    if (!voiceEnabled) return;
+  const speakMessage = (text, force = false) => {
+    if (!voiceEnabled && !force) return;
     voiceAi.speak(text, {
+      voiceId: currentVoiceId,
+      speed: currentSpeed,
       onStart: () => setIsSpeaking(true),
       onEnd: () => setIsSpeaking(false),
       onError: () => setIsSpeaking(false)
@@ -407,6 +412,9 @@ const AiChatWidget = () => {
                   <h3 className="text-sm font-semibold text-neutral-900 tracking-tight">
                     StyleNest Stylist
                   </h3>
+                  <span className="text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                    Aria Neural
+                  </span>
                 </div>
                 <p className="text-[11px] text-neutral-400 font-normal">
                   Personal Fashion & Shopping AI
@@ -611,6 +619,25 @@ const AiChatWidget = () => {
                       </ReactMarkdown>
                     </div>
 
+                    {/* One-click Audio Sample for Aria */}
+                    {!isUser && msg.hasVoiceSample && (
+                      <div className="mt-3 pt-2.5 border-t border-neutral-100 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-800">
+                          <Sparkles className="w-3.5 h-3.5 text-neutral-900" />
+                          <span>Voice: Aria</span>
+                          <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full font-medium">Free Neural</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => speakMessage("Hello! I am Aria, your StyleNest personal fashion concierge. I can recommend outfits, pick sizes, and track your orders. How can I help you today?", true)}
+                          className="flex items-center gap-1 bg-neutral-900 hover:bg-black text-white text-[11px] font-medium px-2.5 py-1 rounded-lg transition shadow-2xs"
+                        >
+                          <Play className="w-2.5 h-2.5 fill-current" />
+                          <span>Play Audio Sample</span>
+                        </button>
+                      </div>
+                    )}
+
                     {/* Metadata & Controls */}
                     <div
                       className={`text-[10px] mt-2 flex items-center justify-between ${
@@ -621,7 +648,7 @@ const AiChatWidget = () => {
                       {!isUser && (
                         <button
                           type="button"
-                          onClick={() => speakMessage(msg.text)}
+                          onClick={() => speakMessage(msg.text, true)}
                           title="Listen to this message"
                           className="hover:text-neutral-700 transition p-0.5 ml-2"
                         >
