@@ -34,7 +34,7 @@ import {
   Play
 } from "lucide-react";
 
-const STORAGE_KEY = "stylenest_ai_chat_history";
+const STORAGE_KEY = "stylenest_ai_chat_history_v2";
 const VOICE_PREF_KEY = "stylenest_ai_voice_enabled";
 
 const INITIAL_MESSAGE = {
@@ -58,6 +58,8 @@ const AiChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState(() => {
     try {
+      // Clear legacy storage from older versions
+      localStorage.removeItem("stylenest_ai_chat_history");
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -165,6 +167,13 @@ const AiChatWidget = () => {
       setTimeout(() => inputRef.current?.focus(), 250);
     }
   }, [isOpen]);
+
+  // Listen to open-ai-stylist global events
+  useEffect(() => {
+    const handleOpen = () => setIsOpen(true);
+    window.addEventListener("open-ai-stylist", handleOpen);
+    return () => window.removeEventListener("open-ai-stylist", handleOpen);
+  }, []);
 
   // Handle Speech-to-Text Voice Input
   const toggleVoiceInput = () => {

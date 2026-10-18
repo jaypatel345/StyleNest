@@ -2,6 +2,7 @@ import React, { useContext, useState } from 'react'
 import {assets} from '../assets/assets'
 import { Link, NavLink } from 'react-router-dom'
 import { ShopContext } from '../context/ShopContext';
+import { Sparkles } from "lucide-react";
 
 const Navbar = () => {
 
@@ -39,7 +40,15 @@ const Navbar = () => {
             <p>CONTACT</p>
             <hr className='w-2/4 border-none h-[1.5px] bg-gray-700 hidden' />
         </NavLink>
-         <NavLink to='https://style-nest-admin-nine.vercel.app/' className='flex flex-col items-center gap-1 border px-5 text-xs py-2 rounded-full -mt-2 mb-2'>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('open-ai-stylist'))}
+          className='flex items-center gap-1.5 border border-neutral-900 bg-neutral-950 text-white px-3.5 text-xs py-1.5 rounded-full -mt-2 mb-2 hover:bg-black transition shadow-2xs cursor-pointer'
+        >
+          <Sparkles className="w-3 h-3 text-neutral-300" />
+          <span>AI Stylist</span>
+        </button>
+        <NavLink to='https://style-nest-admin-nine.vercel.app/' className='flex flex-col items-center gap-1 border px-5 text-xs py-2 rounded-full -mt-2 mb-2'>
             <p>Admin Panel</p>
             <hr className='w-2/4 border-none h-[1.5px] bg-gray-700 hidden' />
         </NavLink>
@@ -77,6 +86,17 @@ const Navbar = () => {
                         <p>Back</p>
                     </div>
                     <NavLink onClick={()=>setVisible(false)} className='py-2 pl-6 border' to='/'>HOME</NavLink>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVisible(false);
+                        window.dispatchEvent(new CustomEvent('open-ai-stylist'));
+                      }}
+                      className='py-2 pl-6 border text-left font-medium text-neutral-900 flex items-center gap-2 hover:bg-neutral-50 transition'
+                    >
+                      <Sparkles className="w-4 h-4 text-neutral-800" />
+                      <span>AI Stylist Concierge</span>
+                    </button>
                     <NavLink onClick={()=>setVisible(false)} className='py-2 pl-6 border' to='/collection'>COLLECTION</NavLink>
                     <NavLink onClick={()=>setVisible(false)} className='py-2 pl-6 border' to='/about'>ABOUT</NavLink>
                     <NavLink onClick={()=>setVisible(false)} className='py-2 pl-6 border' to='/contact'>CONTACT</NavLink>
