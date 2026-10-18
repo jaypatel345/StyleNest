@@ -25,8 +25,13 @@ Small fashion retailers need a practical online storefront that separates custom
 - JWT-based customer registration and login.
 - Persistent cart synchronization between local React state and the authenticated user record.
 - Checkout flow with delivery information, Cash on Delivery, and Stripe Checkout.
-- Stripe payment verification route that clears the cart after successful payment.
 - Customer order history page with status, payment method, item details, and order tracking refresh.
+- **AI Shopping Stylist & Voice Assistant**:
+  - Interactive AI floating chat widget with intelligent fashion recommendations.
+  - In-chat interactive product cards with size selector pills and instant **Add to Cart** action.
+  - **100% Free Browser-Native Voice AI**: Speech-to-Text mic input with animated listening indicator and natural Text-to-Speech voice reply playback.
+  - Comprehensive store queries (7-day returns, $10 shipping, payment methods, order tracking, cart status).
+  - Powered by **Google Gemini 1.5 Flash API** (`GEMINI_API_KEY`) with seamless smart client/server fallback when offline or no API key.
 
 ### Admin Dashboard
 
